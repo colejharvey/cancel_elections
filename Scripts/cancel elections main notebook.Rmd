@@ -1,0 +1,96 @@
+---
+title: "Cancellation of local elections as DV"
+output: html_notebook
+---
+
+```{r setup}
+library(tidyverse)
+library(foreign)
+library(sjPlot)
+library(mfx)
+library(stargazer)
+
+
+reuter.data <- read.csv("reuter_et_al_data_v3.csv")
+reuter.data <- reuter.data %>% mutate(treated0708 = ifelse(is.na(cancel.year)==T, 0, ifelse(cancel.year <= 2007, 1, 0)))
+reuter.data <- reuter.data %>% mutate(divided.govt = opp_mayor1 * UR_majority)
+reuter.data <- reuter.data %>% mutate(years.to.election = ifelse(year == 2003 | year == 2007 | year == 2011, 0, 
+                                                                 ifelse(year == 2000 | year == 2004 | year == 2008 | year == 2012, 3,
+                                                                        ifelse(year == 2001 | year == 2005 | year == 2009, 2,
+                                                                               ifelse(year == 2002 | year == 2006 | year == 2010, 1, NA)))))
+reuter.data <- reuter.data %>% mutate(mayor.ur = ifelse(is.na(opp_mayor1) == T | opp_mayor1 == 1, 0, 1))
+reuter.data <- reuter.data %>% mutate(mayor.opp = ifelse(is.na(opp_mayor1) == T | opp_mayor1 == 0, 0, 1))
+reuter.data <- reuter.data %>% mutate(mayor.ind = ifelse(is.na(opp_mayor1) == T, 1, 0))
+```
+
+```{r base model}
+model.0 <- logitmfx(formula = cancel ~ margin, data = reuter.data %>% filter(year >= 2003), atmean = TRUE, robust = F, clustervar1 = "city_id")
+summary(model.0$fit)
+length(unique(model.0$fit$data$city_id))
+```
+
+```{r}
+model.1 <- logitmfx(formula = cancel ~ margin  + naive_counter + naive_counter2 + naive_counter3  + mayor.ind + mayor.ur*margin*lagged.turnout.coef.pres +
+                         twoyrdum3 +
+                         twoyrdum4 +
+                         twoyrdum5 +
+                         twoyrdum6 
+                         , data = reuter.data, atmean = TRUE, robust = F, clustervar1 = "city_id")
+summary(model.1$fit)
+
+plot_model(model.1$fit, type = "pred", terms = c("lagged.turnout.coef.pres [all]", "mayor.ur", "margin [.16, .385, .61]"))
+
+
+model2.2 <- logitmfx(data = reuter.data, formula = cancel ~ margin  + UR_majority + poppopprop + lnAvgSalary + civsoc91 + mayor.ind + mayor.ur*margin*lagged.turnout.coef.pres +
+                  naive_counter + naive_counter2 + naive_counter3 + 
+                  
+                  twoyrdum3 +
+                  twoyrdum4 +
+                  twoyrdum5 +
+                  twoyrdum6 
+                  , atmean = TRUE, robust = F, clustervar1 = "city_id")
+summary(model2.2$fit)
+
+plot_model(model2.2$fit, type = "pred", terms = c("lagged.turnout.coef.pres [all]", "mayor.ur", "margin [.16, .385, .61]"))
+
+
+model.3 <- logitmfx(data = reuter.data, formula = cancel ~ margin + regelect_margin + UR_majority + poppopprop + lnAvgSalary + civsoc91 +
+mayor.ind + mayor.ur*margin*lagged.turnout.coef.pres +                 naive_counter + naive_counter2 + naive_counter3 + 
+                 twoyrdum3 +
+                 twoyrdum4 +
+                 twoyrdum5 +
+                 twoyrdum6 ,
+               atmean = TRUE, robust = F, clustervar1 = "city_id")
+summary(model.3$fit)
+plot_model(model.3$fit, type = "pred", terms = c("lagged.turnout.coef.pres [all]", "mayor.ur", "margin [.16, .385, .61]"))
+
+model.4 <- logitmfx(data = reuter.data, formula =cancel ~ margin + regelect_margin + regmarginXmargin +
+                mayor.ind + mayor.ur*margin*lagged.turnout.coef.pres +
+                 naive_counter + naive_counter2 + naive_counter3 + 
+                 twoyrdum3 +
+                 twoyrdum4 +
+                 twoyrdum5 +
+                 twoyrdum6,
+                 atmean = TRUE, robust = F, clustervar1 = "city_id")
+summary(model.4$fit)
+plot_model(model.4$fit, type = "pred", terms = c("lagged.turnout.coef.pres [all]", "mayor.ur", "margin [.16, .385, .61]"))
+
+
+model.5 <- logitmfx(data = reuter.data, formula =cancel ~ margin + regelect_margin + regmarginXmargin +
+                      UR_majority + poppopprop + lnAvgSalary + civsoc91 +
+                     mayor.ind + mayor.ur*margin*lagged.turnout.coef.pres +
+                      naive_counter + naive_counter2 + naive_counter3 + 
+                      twoyrdum3 +
+                      twoyrdum4 +
+                      twoyrdum5 +
+                      twoyrdum6,
+                    atmean = TRUE, robust = F, clustervar1 = "city_id")
+summary(model.5$fit)
+plot_model(model.5$fit, type = "pred", terms = c("lagged.turnout.coef.pres [all]", "mayor.ur", "margin [.16, .385, .61]"))
+
+```
+
+```{r tables}
+stargazer(model.1$fit, model2.2$fit, model.3$fit, model.4$fit, model.5$fit, digits = 2, type = "html", out = "main models.html")
+```
+
